@@ -1,61 +1,57 @@
 plugins {
     alias(libs.plugins.agp.app)
-    alias(libs.plugins.kotlin)
 }
 
 android {
-    namespace = "com.example.keepoverlay"
-    compileSdk = 34
-    buildToolsVersion = "34.0.0"
+    namespace = "com.dsmod.probe"
+    compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.keepoverlay"
-        minSdk = 27
-        targetSdk = 34
+        applicationId = "com.dsmod.probe"
+        minSdk = 24
+        targetSdk = 35
         versionCode = 1
-        versionName = "1.0.0"
+        versionName = "1.7.4-fix"
+
+        // DexKit 自带 arm64-v8a / armeabi-v7a / x86 / x86_64 四套原生库。
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            proguardFiles("proguard-rules.pro")
-            signingConfig = signingConfigs["debug"]
+            isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
-    }
-
-    kotlin {
-        jvmToolchain(17)
+        debug {
+            isMinifyEnabled = false
+            isDebuggable = true
+        }
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
 
+    // 让 .so 以传统方式打包进 APK 的 lib/ 目录，配合清单里的
+    // android:extractNativeLibs="true"，DexKit 才能在运行时 dlopen 成功。
     packaging {
-        resources {
-            excludes += setOf(
-                "kotlin/**",
-                "META-INF/*.version",
-                "META-INF/LICENSE*",
-                "META-INF/NOTICE*",
-                "META-INF/INDEX.LIST",
-                "META-INF/MANIFEST.MF",
-                "DebugProbesKt.bin"
-            )
-        }
         jniLibs {
-            excludes += "**"
+            useLegacyPackaging = true
         }
     }
 
     lint {
-        abortOnError = true
         checkReleaseBuilds = false
+        abortOnError = false
     }
 }
 
 dependencies {
     compileOnly(files("libs/xposed-api-stub.jar"))
+
+    // DexKit：运行时解析宿主 DEX，按行为特征定位被 R8 重命名的类。
+    implementation(libs.dexkit)
 }

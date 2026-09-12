@@ -1,6 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string-array name="xposed_scope">
-        <!-- 仅作用于目标应用 -->
-        <item>cn.ulearning.yxy</item>
+    <string-array name="xposedscope">
+        <item>com.deepseek.chat</item>
+        <item>com.dsmod.probe</item>
     </string-array>
 </resources>

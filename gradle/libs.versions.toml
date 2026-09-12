@@ -2,6 +2,7 @@
 agp = "8.0.2"
 kotlin = "1.9.0"
 xposed-api = "context-e2588ee24b-1"
+dexkit = "2.2.0"
 
 [plugins]
 agp-app = { id = "com.android.application", version.ref = "agp" }
@@ -9,3 +10,4 @@ kotlin = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 
 [libraries]
 libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "xposed-api" }
+dexkit = { group = "org.luckypray", name = "dexkit", version.ref = "dexkit" }

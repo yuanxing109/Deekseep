@@ -1,1 +1,1 @@
--keep class com.example.keepoverlay.** { *; }
+-keep class com.dsmod.probe.** { *; }

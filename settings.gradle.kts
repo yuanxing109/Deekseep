@@ -25,6 +25,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "KeepOverlay"
+rootProject.name = "Deekseep"
 
 include(":app")
