@@ -4,12 +4,12 @@ plugins {
 
 android {
     namespace = "com.dsmod.probe"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.dsmod.probe"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 1
         versionName = "1.7.4-fix"
 
