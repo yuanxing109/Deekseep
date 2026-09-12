@@ -52,6 +52,10 @@ android {
 dependencies {
     compileOnly(files("libs/xposed-api-stub.jar"))
 
+    // DexKit 是 Kotlin 写的，其公开 API 暴露了 kotlin.ranges.IntRange、
+    // kotlin.DeprecationLevel 等类型，Java 调用方必须有 stdlib 在编译类路径上。
+    implementation(libs.kotlin.stdlib)
+
     // DexKit：运行时解析宿主 DEX，按行为特征定位被 R8 重命名的类。
     implementation(libs.dexkit)
 }

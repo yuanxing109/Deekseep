@@ -9,11 +9,13 @@ import org.luckypray.dexkit.query.FindMethod;
 import org.luckypray.dexkit.query.matchers.ClassMatcher;
 import org.luckypray.dexkit.query.matchers.MethodMatcher;
 import org.luckypray.dexkit.result.ClassData;
+import org.luckypray.dexkit.result.FieldData;
 import org.luckypray.dexkit.result.MethodData;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -47,7 +49,6 @@ final class DexKitHostResolver {
     static final String KEY_COMPLETION_REQUEST = "nx0"; // ChatCompletionRequest (CN)
     static final String KEY_FULL_REQUEST       = "qw0"; // ChatFullCompletionRequest
     static final String KEY_VIEW_MODEL_OWNER   = "sc";  // LocalViewModelStoreOwner
-    static final String KEY_UNIT               = "mu8"; // kotlin.Unit
 
     private static final Object LOCK = new Object();
     private static volatile Map<String, String> resolved;
@@ -139,7 +140,6 @@ final class DexKitHostResolver {
             findChatStateEvent(bridge, out, viewModel);
             findCompletionRequests(bridge, out);
             findViewModelStoreOwner(bridge, out);
-            findUnit(bridge, out);
         } catch (Throwable t) {
             Log.w(TAG, "扫描过程异常: " + t);
         } finally {
@@ -161,7 +161,6 @@ final class DexKitHostResolver {
         List<MethodData> candidates = bridge.findMethod(FindMethod.create()
                 .matcher(MethodMatcher.create()
                         .paramCount(3)
-                        .paramTypes("java.lang.Object", "java.lang.Object", "java.lang.Object")
                         .returnType("java.lang.Object")));
 
         for (MethodData method : candidates) {
@@ -190,19 +189,17 @@ final class DexKitHostResolver {
                                            String viewModelName) {
         if (viewModelName == null) return;
         try {
-            List<ClassData> classes = bridge.findClass(FindClass.create()
-                    .matcher(ClassMatcher.create().className(viewModelName)));
-            if (classes == null || classes.isEmpty()) return;
+            ClassData viewModel = findClassByName(bridge, viewModelName);
+            if (viewModel == null) return;
 
-            ClassData viewModel = classes.get(0);
             List<MethodData> methods = viewModel.getMethods();
             if (methods == null) return;
 
             // 收集两参 void 方法的参数类型，作为 state/event 的候选池。
             Map<String, Integer> paramPool = new HashMap<>();
             for (MethodData md : methods) {
-                List<String> params = md.getParamTypes();
-                if (params != null && params.size() == 2 && "void".equals(md.getReturnType())) {
+                List<String> params = md.getParamTypeNames();
+                if (params != null && params.size() == 2 && "void".equals(md.getReturnTypeName())) {
                     for (String p : params) {
                         Integer n = paramPool.get(p);
                         paramPool.put(p, n == null ? 1 : n + 1);
@@ -213,9 +210,9 @@ final class DexKitHostResolver {
             String best = null;
             int bestScore = 0;
             for (MethodData md : methods) {
-                List<String> params = md.getParamTypes();
+                List<String> params = md.getParamTypeNames();
                 if (params != null && !params.isEmpty()) continue;
-                String ret = md.getReturnType();
+                String ret = md.getReturnTypeName();
                 if (ret == null || ret.startsWith("java.") || ret.startsWith("kotlin.")) continue;
                 if (ret.equals(viewModelName)) continue;
                 Integer score = paramPool.get(ret);
@@ -288,7 +285,7 @@ final class DexKitHostResolver {
         if (methods == null) return false;
         for (MethodData md : methods) {
             if (!"<init>".equals(md.getName())) continue;
-            List<String> p = md.getParamTypes();
+            List<String> p = md.getParamTypeNames();
             if (p == null || p.size() != 11) continue;
             if ("java.lang.String".equals(p.get(0))
                     && "java.lang.String".equals(p.get(2))
@@ -329,41 +326,25 @@ final class DexKitHostResolver {
         }
     }
 
-    /**
-     * kotlin.Unit：具备一个静态的、类型等于自身的 INSTANCE 字段。
-     */
-    private static void findUnit(DexKitBridge bridge, Map<String, String> out) {
-        try {
-            List<ClassData> classes = bridge.findClass(FindClass.create()
-                    .matcher(ClassMatcher.create().usingStrings("Unit")));
-            for (ClassData cls : classes) {
-                if (cls == null) continue;
-                List<org.luckypray.dexkit.result.FieldData> fields = cls.getFields();
-                if (fields == null) continue;
-                for (org.luckypray.dexkit.result.FieldData fd : fields) {
-                    if ("INSTANCE".equals(fd.getName())
-                            && cls.getName().equals(fd.getType())
-                            && fd.isStatic()) {
-                        out.put(KEY_UNIT, cls.getName());
-                        Log.i(TAG, "Unit -> " + cls.getName());
-                        return;
-                    }
-                }
-            }
-            Log.w(TAG, "未定位到 Unit");
-        } catch (Throwable t) {
-            Log.w(TAG, "定位 Unit 失败: " + t);
-        }
-    }
-
     // ---------------------------------------------------------------- 工具
+
+    private static ClassData findClassByName(DexKitBridge bridge, String className) {
+        try {
+            List<ClassData> list = bridge.findClass(FindClass.create()
+                    .matcher(ClassMatcher.create().className(className)));
+            if (list != null && !list.isEmpty()) return list.get(0);
+        } catch (Throwable t) {
+            Log.w(TAG, "按类名查找失败 " + className + ": " + t);
+        }
+        return null;
+    }
 
     private static boolean hasMethod(ClassData owner, String name, int paramCount, String[] params) {
         List<MethodData> methods = owner.getMethods();
         if (methods == null) return false;
         for (MethodData md : methods) {
             if (!name.equals(md.getName())) continue;
-            List<String> types = md.getParamTypes();
+            List<String> types = md.getParamTypeNames();
             if (types == null || types.size() != paramCount) continue;
             boolean same = true;
             for (int i = 0; i < paramCount; i++) {
